@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="jquery-3.5.1.min.js"></script>
+    <script src="https://martinusius.sk/libraries/chess/dist/chess.js"></script>
+    <title>HTML chess example</title>
+</head>
+<body>
+
+    <div class="chess-board chess-theme-default">
+
+    </div>
+
+    <img id="cursor" src="" style="visibility: hidden">
+    
+    <style>
+        body, html {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            
+        }
+
+        .chess-board {
+            width: 90vw;
+            height: 90vw;
+            max-width: 90vh;
+            max-height: 90vh;
+            box-shadow: 0px 20px 75px 0px rgba(0, 0, 0, 0.5);
+            font-size: 0;
+        }
+
+        .chess-field {
+            display: inline-block;
+            width: 12.5%;
+            height: 12.5%;
+        }
+
+        .chess-theme-default .chess-field.white {
+            background: white;
+        }
+
+        .chess-theme-default .chess-field.black {
+            background: black;
+        }
+
+        .chess-theme-sea .chess-field.white {
+            background: #cce5ff;
+        }
+        .chess-theme-sea .chess-field.black {
+            background: #1966b3;
+        }
+
+        .chess-theme-tree .chess-field.white {
+            background: #ffffe5;
+        }
+        .chess-theme-tree .chess-field.black {
+            background: #73a145;
+        }
+
+        .chess-piece {
+            display: inline-block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #cursor {
+            position: fixed;
+            width: 100px;
+            height: 100px;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+    </style>
+
+    <script>
+        // Map images to asset names
+        const images = {};
+        images['king_white'] = 'Chess_klt45.svg';
+        images['king_black'] = 'Chess_kdt45.svg';
+        images['queen_white'] = 'Chess_qlt45.svg';
+        images['queen_black'] = 'Chess_qdt45.svg';
+        images['rook_white'] = 'Chess_rlt45.svg';
+        images['rook_black'] = 'Chess_rdt45.svg';
+        images['bishop_white'] = 'Chess_blt45.svg';
+        images['bishop_black'] = 'Chess_bdt45.svg';
+        images['knight_white'] = 'Chess_nlt45.svg';
+        images['knight_black'] = 'Chess_ndt45.svg';
+        images['pawn_white'] = 'Chess_plt45.svg';
+        images['pawn_black'] = 'Chess_pdt45.svg';
+
+        // Create a new board and put it in the beginning  state
+        const board = new Board(8, 8);
+        board.classicSetup();
+
+
+        let grabbedPiece;
+
+        $(document).ready(function() {
+            // Get square html by its position
+            function getSquare(x, y) {
+                return $('.chess-field').eq(y * 8 + x);
+            }
+
+            // Redraw pieces html
+            function redrawPieces() {
+                for(let y = 0; y < 8; ++y) {
+                    for(let x = 0; x < 8; ++x) {
+                        const color = (x + y) % 2 ? 'black' : 'white';
+
+                        const pieceHTML = board.getPiece(x, y) && board.getPiece(x, y) !== grabbedPiece ?
+                            `<img class="chess-piece" src="${images[board.getPiece(x, y).assetName]}">` : '';
+
+                        getSquare(x, y).find('.chess-piece').remove();
+                        getSquare(x, y).append(pieceHTML);
+                    }
+                }
+            }
+
+            // Show possible moves of the grabbed piece (or hide them if no piece is grabbed)
+            function showMoves() {
+                for(let y = 0; y < 8; ++y) {
+                    for(let x = 0; x < 8; ++x) {
+                        let color = (x + y) % 2 ? 'black' : 'white';
+
+                        if(grabbedPiece && grabbedPiece.canMoveTo(x, y)) color = 'dodgerblue';
+
+                        getSquare(x, y).css({ background: color });
+                    }
+                }
+            }
+
+            // Draw the grabbed piece
+            function displayGrabbedPiece() {
+                $('#cursor').css({ visibility: grabbedPiece ? 'visible' : 'hidden' });
+
+                if(!grabbedPiece) return;
+
+                const cursorSize = $('.chess-board').width() / 8;
+
+                $('#cursor').css({
+                    width: cursorSize,
+                    height: cursorSize,
+                    transform: `
+                        translateX(${event.clientX - cursorSize / 2}px)
+                        translateY(${event.clientY -  cursorSize / 2}px)
+                    `
+                });
+            }
+
+            // Create the chessboard html
+            for(let y = 0; y < 8; ++y) {
+                for(let x = 0; x < 8; ++x) {
+                    const color = (x + y) % 2 ? 'black' : 'white';
+
+                    const pieceHTML = board.getPiece(x, y) ?
+                        `<img class="chess-piece" src="${images[board.getPiece(x, y).assetName]}">` : '';
+
+                    $('.chess-board').append(`
+                        <div class="chess-field ${color}">
+                            ${pieceHTML}
+                        </div>`
+                    );
+                }
+            }
+
+            function mousedown(event) {
+                event.preventDefault();
+
+                // Calculate position on the board
+                const x = $(this).index() % 8;
+                const y = Math.floor($(this).index() / 8);
+            
+                // Find the clicked piece
+                const clickedPiece = board.getPiece(x, y);
+            
+                // Grab it if we can
+                if(clickedPiece && clickedPiece.color === board.turn) {
+                    grabbedPiece = clickedPiece;
+                    $('#cursor').attr('src', images[grabbedPiece.assetName]);
+                    redrawPieces();
+                    showMoves();
+                }
+                 
+                displayGrabbedPiece();
+            }
+
+            
+            $('.chess-field').mousedown(mousedown);
+            $('.chess-field').on('touchstart', mousedown);
+
+            function mouseup(event) {
+                event.preventDefault();
+
+                if(!grabbedPiece) return;
+
+                // Calculate position on the board
+                const x = $(this).index() % 8;
+                const y = Math.floor($(this).index() / 8);
+            
+                // Try to move the piece
+                if(!board.movePiece(grabbedPiece.x, grabbedPiece.y, x, y)) return;
+
+                // Play random move for the opponent
+                /*const moves = board.playableMoves();
+                const selectedMove = moves[Math.floor(Math.random() * moves.length)];
+                board.movePiece(selectedMove.from.x, selectedMove.from.y, selectedMove.to.x, selectedMove.to.y);*/
+            }
+
+            function mouseupWindow() {
+                event.preventDefault();
+                if(!grabbedPiece) return;
+
+                grabbedPiece = undefined; 
+                redrawPieces();
+                displayGrabbedPiece(); // Hide the grabbed piece
+                showMoves(); // Hide the previously shown moves
+            }
+            
+            $('.chess-field').mouseup(mouseup);
+            $('.chess-field').on('touchend', mouseup);
+
+            $(window).mouseup(mouseupWindow);
+            $(window).on('touchend', mouseupWindow);
+
+            // Moving the grabbed piece
+            $(document).mousemove(function(event) {
+                event.preventDefault();
+                displayGrabbedPiece();
+            });
+
+            $(document).on('touchmove', function(event) {
+                console.log(event);
+                event.preventDefault(event);
+                displayGrabbedPiece();
+            });
+        }); 
+    </script>
+</body>
+</html>
